@@ -1,0 +1,72 @@
+2026-07-27 17:32:22,233 - agent - INFO - vector_store.py:91 - [加载知识库]/home/fxn23376/LangChain/data/选购指南.txt内容加载成功
+2026-07-27 17:32:28,110 - agent - INFO - vector_store.py:91 - [加载知识库]/home/fxn23376/LangChain/data/故障排除.txt内容加载成功
+2026-07-27 17:32:32,534 - agent - INFO - vector_store.py:91 - [加载知识库]/home/fxn23376/LangChain/data/扫拖一体机器人100问.txt内容加载成功
+2026-07-27 17:32:32,559 - agent - ERROR - vector_store.py:94 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问.pdf加载失败：`pypdf` package not found, please install it with `pip install pypdf`
+Traceback (most recent call last):
+  File "/home/fxn23376/.local/lib/python3.10/site-packages/langchain_community/document_loaders/parsers/pdf.py", line 358, in lazy_parse
+    import pypdf
+ModuleNotFoundError: No module named 'pypdf'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/fxn23376/LangChain/rag/vector_store.py", line 76, in load_document
+    documents: list[Document] = get_file_documents(path)
+  File "/home/fxn23376/LangChain/rag/vector_store.py", line 58, in get_file_documents
+    return pdf_loader(read_path)
+  File "/home/fxn23376/LangChain/utils/file_handler.py", line 46, in pdf_loader
+    return loader.load()
+  File "/home/fxn23376/.local/lib/python3.10/site-packages/langchain_core/document_loaders/base.py", line 43, in load
+    return list(self.lazy_load())
+  File "/home/fxn23376/.local/lib/python3.10/site-packages/langchain_community/document_loaders/pdf.py", line 305, in lazy_load
+    yield from self.parser.lazy_parse(blob)
+  File "/home/fxn23376/.local/lib/python3.10/site-packages/langchain_community/document_loaders/parsers/pdf.py", line 360, in lazy_parse
+    raise ImportError(
+ImportError: `pypdf` package not found, please install it with `pip install pypdf`
+2026-07-27 17:32:36,761 - agent - INFO - vector_store.py:91 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问2.txt内容加载成功
+2026-07-27 17:32:40,540 - agent - INFO - vector_store.py:91 - [加载知识库]/home/fxn23376/LangChain/data/维护保养.txt内容加载成功
+2026-07-27 17:32:49,608 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/选购指南.txt内容已经存在知识库内，跳过
+2026-07-27 17:32:49,608 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/故障排除.txt内容已经存在知识库内，跳过
+2026-07-27 17:32:49,609 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫拖一体机器人100问.txt内容已经存在知识库内，跳过
+2026-07-27 17:32:49,612 - agent - ERROR - vector_store.py:94 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问.pdf加载失败：`pypdf` package not found, please install it with `pip install pypdf`
+Traceback (most recent call last):
+  File "/home/fxn23376/.local/lib/python3.10/site-packages/langchain_community/document_loaders/parsers/pdf.py", line 358, in lazy_parse
+    import pypdf
+ModuleNotFoundError: No module named 'pypdf'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/fxn23376/LangChain/rag/vector_store.py", line 76, in load_document
+    documents: list[Document] = get_file_documents(path)
+  File "/home/fxn23376/LangChain/rag/vector_store.py", line 58, in get_file_documents
+    return pdf_loader(read_path)
+  File "/home/fxn23376/LangChain/utils/file_handler.py", line 46, in pdf_loader
+    return loader.load()
+  File "/home/fxn23376/.local/lib/python3.10/site-packages/langchain_core/document_loaders/base.py", line 43, in load
+    return list(self.lazy_load())
+  File "/home/fxn23376/.local/lib/python3.10/site-packages/langchain_community/document_loaders/pdf.py", line 305, in lazy_load
+    yield from self.parser.lazy_parse(blob)
+  File "/home/fxn23376/.local/lib/python3.10/site-packages/langchain_community/document_loaders/parsers/pdf.py", line 360, in lazy_parse
+    raise ImportError(
+ImportError: `pypdf` package not found, please install it with `pip install pypdf`
+2026-07-27 17:32:49,613 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问2.txt内容已经存在知识库内，跳过
+2026-07-27 17:32:49,613 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/维护保养.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:12,029 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/选购指南.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:12,029 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/故障排除.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:12,030 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫拖一体机器人100问.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:15,037 - agent - INFO - vector_store.py:91 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问.pdf内容加载成功
+2026-07-27 17:35:15,037 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问2.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:15,038 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/维护保养.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:47,862 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/选购指南.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:47,863 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/故障排除.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:47,863 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫拖一体机器人100问.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:47,863 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问.pdf内容已经存在知识库内，跳过
+2026-07-27 17:35:47,863 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问2.txt内容已经存在知识库内，跳过
+2026-07-27 17:35:47,864 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/维护保养.txt内容已经存在知识库内，跳过
+2026-07-27 18:22:22,869 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/选购指南.txt内容已经存在知识库内，跳过
+2026-07-27 18:22:22,869 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/故障排除.txt内容已经存在知识库内，跳过
+2026-07-27 18:22:22,870 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫拖一体机器人100问.txt内容已经存在知识库内，跳过
+2026-07-27 18:22:22,870 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问.pdf内容已经存在知识库内，跳过
+2026-07-27 18:22:22,870 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/扫地机器人100问2.txt内容已经存在知识库内，跳过
+2026-07-27 18:22:22,870 - agent - INFO - vector_store.py:72 - [加载知识库]/home/fxn23376/LangChain/data/维护保养.txt内容已经存在知识库内，跳过
