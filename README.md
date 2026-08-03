@@ -29,6 +29,16 @@ DriveMind 可以通过本地 RAG 知识库回答下列领域问题：
 
 选择结果会作为当前请求的 runtime context 注入 Agent。工具只能读取当前上下文中的负责人和跑次，不会随机选择身份，也不会跨负责人查询数据。
 
+### 科研评测工作台
+
+Streamlit 首页直接展示当前跑次的计算摘要：
+
+- 核心指标：ADE、FDE、Miss Rate、Route Completion；
+- 闭环与质量指标：Collision Rate、每百公里接管、每百公里碰撞、Invalid Sample；
+- 证据口径：场景数、原始帧数、有效里程、Miss 阈值和指标来源；
+- 选择 baseline 后显示目标跑次相对基线的差值，误差与事件类指标下降显示为改善，Route Completion 上升显示为改善；
+- 指标名称保持短标签以避免小屏截断，完整定义可通过标签旁的提示查看。
+
 ### 自动生成评测报告
 
 报告以开环分析为主，闭环结果作为补充证据，固定包含以下九个章节：
@@ -72,6 +82,8 @@ fill_context_for_report
 ```text
 Streamlit 侧边栏
     → owner_id / run_id / baseline_run_id
+    → records.csv 原始车辆与场景遥测
+    → 字段校验 / 场景聚合 / 跑次指标计算
     → Agent runtime context
     → 评测工具或知识检索
     → 动态提示词
@@ -186,6 +198,8 @@ DASHSCOPE_API_KEY=replace_with_your_key
 
 应用按跑次实时聚合：ADE 使用所有有效轨迹点，FDE 使用各场景末端有效点；Miss Rate 的默认阈值为 2.0 m；碰撞和接管按事件 ID 去重后再按场景或有效里程归一化。完整字段和口径见 `config/metrics.yml` 与 `data/knowledge/06_字段约定.md`。
 
+聚合结果会附带 `source=computed_from_raw_telemetry`、原始帧数、场景数、有效轨迹点和有效里程。当前 MVP 不根据这些指标自动作正式门禁判断，`gate_status` 固定为 `INCONCLUSIVE`，不等同于 PASS 或 FAIL。
+
 `run_id` 必须符合 `run_YYYYMMDD_xx` 格式，baseline 必须属于同一 owner。真实数据需保持 UTF-8 和现有表头；更新后重启 Streamlit 以清除缓存。要恢复仓库自带示例数据，可执行：
 
 ```powershell
@@ -275,7 +289,7 @@ python -m pytest -q
 执行 Python 编译检查：
 
 ```powershell
-python -m compileall -q agent model rag utils scripts tests app.py
+python -m compileall -q agent evaluation model rag utils scripts tests app.py
 ```
 
 行为验收样例位于 `eval/cases.yaml`，包括知识问答、正常报告、缺失数据拒答和门禁边界问题。`eval/golden_reports/` 提供人工核对用参考报告。它们用于行为回归，不替代确定性单元测试，也不表示模型措辞必须逐字一致。
@@ -297,6 +311,12 @@ python -m compileall -q agent model rag utils scripts tests app.py
 ### 重建知识库失败
 
 先运行 `python -m scripts.rebuild_kb --check`。如本地校验通过，再检查 API Key、网络、模型名称和服务地址。正式重建失败时不会把失败文件标记为已成功处理。
+
+Windows 下如果出现 `WinError 32`，说明 Streamlit 或其他 Python 进程仍占用 `chroma_db`，应完全停止应用后重试。如果出现 `SSL: UNEXPECTED_EOF_WHILE_READING`，表示到 DashScope 的 HTTPS 连接中途断开；不要使用本次不完整向量库，待网络稳定后重新执行完整重建：
+
+```powershell
+python -m scripts.rebuild_kb
+```
 
 ### 侧边栏没有 owner 或 run
 
