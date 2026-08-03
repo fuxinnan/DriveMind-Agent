@@ -1,29 +1,26 @@
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 """
 yaml
 k: v
 """
 import yaml
-from path_tools import get_abs_path
+
+from utils.path_tools import get_abs_path
 
 def load_rag_config(config_path:str=get_abs_path("config/rag.yml"),encoding:str="utf-8"):
     with open(config_path,"r",encoding=encoding) as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
+        return yaml.safe_load(f)
     
 def load_chroma_config(config_path:str=get_abs_path("config/chroma.yml"),encoding:str="utf-8"):
     with open(config_path,"r",encoding=encoding) as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
+        return yaml.safe_load(f)
     
 def load_prompts_config(config_path:str=get_abs_path("config/prompts.yml"),encoding:str="utf-8"):
     with open(config_path,"r",encoding=encoding) as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
+        return yaml.safe_load(f)
     
 def load_agent_config(config_path:str=get_abs_path("config/agent.yml"),encoding:str="utf-8"):
     with open(config_path,"r",encoding=encoding) as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
+        return yaml.safe_load(f)
     
 rag_conf = load_rag_config()
 chroma_conf = load_chroma_config()

@@ -1,0 +1,23 @@
+DriveMind 跑次字段与工具约定
+
+身份字段：
+- owner_id：评测负责人标识，由侧边栏选择。
+- run_id：跑次主键，格式 run_YYYYMMDD_xx。
+- baseline_run_id：可选基线，必须属于同一 owner 且指向存在的跑次。
+- model_version、dataset：模型与数据集版本。
+
+条件字段：
+- eval_region：评测地图或评测域。
+- env_condition：光照、气象和交通密度等条件。
+
+指标与证据字段：
+- ade、fde、miss_rate、collision_rate：开环指标。
+- route_completion、closed_loop_takeover_per_100km、closed_loop_collision_per_100km：闭环补充指标。
+- timeout_count、invalid_sample_rate：运行健康。
+- gate_status：记录中的门禁状态。
+- comparison_summary、scenario_risks、notes：解释性文本，不能覆盖原始数值。
+
+报告工具固定顺序：
+fill_context_for_report → get_eval_owner_id → get_run_id → fetch_external_data
+
+工具只允许读取当前侧边栏 context。请求的 owner_id 或 run_id 与当前选择不一致时返回无数据，不随机选择或跨 owner 查询。baseline 为空时不伪造比较结果。

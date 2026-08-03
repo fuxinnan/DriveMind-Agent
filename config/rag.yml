@@ -1,4 +1,3 @@
 chat_model_name: qwen3.7-plus
 embedding_model_name: text-embedding-v4
-api_key: sk-64a43951663e45ce884474669b62b21b
 base_url: https://ws-r7c3vo4jw8ty5vqw.cn-beijing.maas.aliyuncs.com/compatible-mode/v1

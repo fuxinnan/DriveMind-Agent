@@ -47,11 +47,13 @@ def log_before_model(
     return None
 
 
-@dynamic_prompt          # 每一次在生成提示词之前，调用此函数
-def report_prompt_switch(request: ModelRequest):    # 动态切换提示词
-    is_report = request.runtime.context.get("report",False)
-    if is_report:   # 报告生成场景
-        return load_report_prompts()
-    
-    return load_system_prompts()
+def select_system_prompt(report: bool) -> str:
+    """Select a prompt without coupling tests to LangChain's middleware wrapper."""
+    return load_report_prompts() if report else load_system_prompts()
+
+
+@dynamic_prompt
+def report_prompt_switch(request: ModelRequest):
+    is_report = request.runtime.context.get("report", False)
+    return select_system_prompt(is_report)
 

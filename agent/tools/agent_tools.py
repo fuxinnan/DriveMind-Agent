@@ -1,104 +1,171 @@
-import sys
+import csv
+import json
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from langchain_core.tools import tool
-from rag.rag_service import RagSummaryService
-import random
+from functools import lru_cache
+from typing import Any
+
+from langchain.tools import ToolRuntime, tool
+
+from agent.context import AgentContext
 from utils.config_handler import agent_conf
-from utils.path_tools import get_abs_path
 from utils.loger_handler import logger
+from utils.path_tools import get_abs_path
 
-rag = RagSummaryService()
 
-user_ids = ["1001","1002","1003","1004","1005","1006","1007","1008","1009","1010",]
+def _records_path() -> str:
+    return get_abs_path(agent_conf["external_data_path"])
 
-month_arr = ["2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12"]
 
-external_data = {}
+@lru_cache(maxsize=1)
+def load_eval_records() -> tuple[dict[str, str], ...]:
+    """Load immutable evaluation records from the configured UTF-8 CSV."""
+    path = _records_path()
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"评测数据文件不存在：{path}")
 
-@tool(description="从向量知识库中检索参考资料")
+    with open(path, "r", encoding="utf-8-sig", newline="") as file:
+        records = tuple(dict(row) for row in csv.DictReader(file))
+
+    required = {"owner_id", "run_id", "eval_region", "env_condition"}
+    missing = required.difference(records[0].keys() if records else set())
+    if missing:
+        raise ValueError(f"评测数据缺少字段：{', '.join(sorted(missing))}")
+    return records
+
+
+def clear_records_cache() -> None:
+    """Clear the CSV cache, primarily for tests and local data refreshes."""
+    load_eval_records.cache_clear()
+
+
+def list_eval_owners() -> list[str]:
+    return sorted({row["owner_id"] for row in load_eval_records()})
+
+
+def list_runs_for_owner(owner_id: str) -> list[str]:
+    return sorted(
+        (row["run_id"] for row in load_eval_records() if row["owner_id"] == owner_id),
+        reverse=True,
+    )
+
+
+def get_eval_record(owner_id: str, run_id: str) -> dict[str, str] | None:
+    return next(
+        (
+            dict(row)
+            for row in load_eval_records()
+            if row["owner_id"] == owner_id and row["run_id"] == run_id
+        ),
+        None,
+    )
+
+
+def _context_value(runtime: ToolRuntime[AgentContext], key: str) -> str:
+    value = runtime.context.get(key, "")
+    return str(value).strip()
+
+
+@lru_cache(maxsize=1)
+def _rag_service():
+    from rag.rag_service import RagSummaryService
+
+    return RagSummaryService()
+
+
+@tool(description="从 DriveMind 评测知识库检索资料；仅基于检索资料回答评测知识问题")
 def rag_summarize(query: str) -> str:
-    return rag.rag_summarize(query)
+    return _rag_service().rag_summarize(query)
 
 
-@tool(description="获取指定城市的天气，以消息字符串的形式返回")
-def get_weather(city: str) -> str:
-    return f"城市{city}天气为晴天，气温26摄氏度，空气湿度50%，南风1级，AQI21，最近6小时降雨概率极低"
+@tool(description="返回当前侧边栏选中的评测负责人 owner_id，不生成随机值")
+def get_eval_owner_id(runtime: ToolRuntime[AgentContext]) -> str:
+    return _context_value(runtime, "owner_id")
 
 
-@tool(description="获取用户所在城市的名称，以纯字符串的形式返回")
-def get_user_location() -> str:
-    return random.choice(["深圳","合肥","杭州"])
+@tool(description="返回当前侧边栏选中的评测跑次 run_id，不生成随机值")
+def get_run_id(runtime: ToolRuntime[AgentContext]) -> str:
+    return _context_value(runtime, "run_id")
 
 
-@tool(description="获取用户的id，以纯字符串形式返回")
-def get_user_id() -> str:
-    return random.choice(user_ids)
+@tool(description="返回当前选中跑次的评测地图或评测域")
+def get_eval_region(runtime: ToolRuntime[AgentContext]) -> str:
+    record = get_eval_record(
+        _context_value(runtime, "owner_id"), _context_value(runtime, "run_id")
+    )
+    return record["eval_region"] if record else ""
 
 
-@tool(description="获取当前月份，以纯字符串形式返回")
-def get_current_month() -> str:
-    return random.choice(month_arr)
+@tool(description="返回当前选中跑次的光照、天气、道路等评测环境条件")
+def get_env_condition(runtime: ToolRuntime[AgentContext]) -> str:
+    record = get_eval_record(
+        _context_value(runtime, "owner_id"), _context_value(runtime, "run_id")
+    )
+    return record["env_condition"] if record else ""
 
-def generate_external_data():
-    """
-        "user_id":{
-            "month":{"特征":xxx, "效率":xxx, ...}
-            "month":{"特征":xxx, "效率":xxx, ...}
-            "month":{"特征":xxx, "效率":xxx, ...}
-            ...
-        },
-        "user_id":{
-            "month":{"特征":xxx, "效率":xxx, ...}
-            "month":{"特征":xxx, "效率":xxx, ...}
-            "month":{"特征":xxx, "效率":xxx, ...}
-            ...
-        },
-        "user_id":{
-            "month":{"特征":xxx, "效率":xxx, ...}
-            "month":{"特征":xxx, "效率":xxx, ...}
-            "month":{"特征":xxx, "效率":xxx, ...}
-            ...
-        },
-        ...
-    """
-    if not external_data:
-        external_data_path = get_abs_path(agent_conf["external_data_path"])
 
-        if not os.path.exists(external_data_path):
-            raise FileNotFoundError(f"外部数据文件{external_data_path}不存在")
+def build_external_data(
+    owner_id: str, run_id: str, baseline_run_id: str = ""
+) -> dict[str, Any] | None:
+    """Return selected run data and an optional baseline, without inference."""
+    record = get_eval_record(owner_id, run_id)
+    if record is None:
+        return None
 
-        with open(external_data_path,"r",encoding="utf-8") as f:
-            for line in f.readlines()[1:]:
-                arr: list[str] = line.strip().split(",")
+    baseline = None
+    if baseline_run_id:
+        baseline = get_eval_record(owner_id, baseline_run_id)
 
-                user_id: str = arr[0].replace('"',"")
-                feature: str = arr[1].replace('"',"")
-                efficiency: str = arr[2].replace('"',"")
-                consumables: str = arr[3].replace('"',"")
-                comparison: str = arr[4].replace('"',"")
-                time: str = arr[5].replace('"',"")
+    return {
+        "selected_run": record,
+        "baseline_run": baseline,
+        "baseline_requested": baseline_run_id or None,
+        "data_policy": "仅可引用以上原始字段；空值或缺失字段不得推断。",
+    }
 
-                if user_id not in external_data:
-                    external_data[user_id] = {}
 
-                external_data[user_id][time] = {
-                    "特征": feature,
-                    "效率": efficiency,
-                    "耗材": consumables,
-                    "对比": comparison
-                }
+@tool(
+    description=(
+        "按 owner_id 与 run_id 查询评测记录，可附带 baseline_run_id。"
+        "仅允许查询当前侧边栏选中的负责人和跑次；未命中时返回明确无数据结果。"
+    )
+)
+def fetch_external_data(
+    owner_id: str,
+    run_id: str,
+    runtime: ToolRuntime[AgentContext],
+    baseline_run_id: str = "",
+) -> str:
+    selected_owner = _context_value(runtime, "owner_id")
+    selected_run = _context_value(runtime, "run_id")
+    selected_baseline = _context_value(runtime, "baseline_run_id")
 
-@tool(description="从外部系统中获取用户的使用记录，以纯字符串形式返回，如果未检索到返回空字符串")
-def fetch_external_data(user_id: str,month:str) -> str:
-    generate_external_data()
+    if owner_id != selected_owner or run_id != selected_run:
+        logger.warning(
+            "[fetch_external_data]拒绝查询非当前上下文数据：owner=%s run=%s",
+            owner_id,
+            run_id,
+        )
+        return "无数据：请求的 owner_id 或 run_id 与当前侧边栏选择不一致。"
 
-    try:
-        return external_data[user_id][month]
-    except KeyError:
-        logger.warning(f"[fetcn_external_data]未能检索到用户：{user_id}在{month}的使用记录数据")
-        return ""
+    if baseline_run_id and baseline_run_id != selected_baseline:
+        return "无数据：请求的 baseline_run_id 与当前侧边栏选择不一致。"
 
-@tool(description="无入参，无返回值，调用后触发中间件自动为报告生成的场景，动态注入上下文信息，为后续提示词切换提供上下文信息")
-def fill_context_for_report():
-    return "fill_context_for_report已调用"
+    result = build_external_data(
+        selected_owner, selected_run, selected_baseline or baseline_run_id
+    )
+    if result is None:
+        logger.warning(
+            "[fetch_external_data]未找到 owner=%s run=%s", selected_owner, selected_run
+        )
+        return "无数据：未检索到当前负责人和跑次的评测记录。"
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+@tool(
+    description=(
+        "报告生成的前置工具。调用后由中间件切换至报告提示词；"
+        "仅在用户明确要求生成或查询评测报告时调用。"
+    )
+)
+def fill_context_for_report() -> str:
+    return "报告上下文已启用"

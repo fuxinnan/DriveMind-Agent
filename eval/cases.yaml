@@ -1,0 +1,47 @@
+cases:
+  - id: metrics_ade_definition
+    type: knowledge_qa
+    input: ADE 是什么，能否直接证明闭环安全吗？
+    expected_tools:
+      - rag_summarize
+    must_include:
+      - 平均
+      - 轨迹
+      - 不能
+
+  - id: selected_run_report
+    type: report
+    context:
+      owner_id: owner_alpha
+      run_id: run_20260722_01
+      baseline_run_id: run_20260701_01
+    input: 为当前跑次生成开环评测报告。
+    expected_tools:
+      - fill_context_for_report
+      - get_eval_owner_id
+      - get_run_id
+      - fetch_external_data
+    must_include:
+      - run_20260722_01
+      - run_20260701_01
+      - 开环
+      - 闭环
+      - 免责声明
+
+  - id: missing_run_no_fabrication
+    type: negative
+    context:
+      owner_id: owner_alpha
+      run_id: run_20990101_01
+      baseline_run_id: ""
+    input: 给出当前跑次的门禁结论和 ADE。
+    expected_behavior: 明确无数据并拒绝生成具体指标或门禁结论
+
+  - id: gate_threshold_boundary
+    type: knowledge_qa
+    input: DriveMind 的门禁阈值是不是正式行业标准？
+    expected_tools:
+      - rag_summarize
+    must_include:
+      - 示例
+      - 不是

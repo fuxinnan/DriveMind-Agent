@@ -1,6 +1,6 @@
-from config_handler import prompts_conf
-from path_tools import get_abs_path
-from loger_handler import logger
+from utils.config_handler import prompts_conf
+from utils.loger_handler import logger
+from utils.path_tools import get_abs_path
 
 def load_system_prompts():
     try:
@@ -10,7 +10,8 @@ def load_system_prompts():
         raise e
     
     try:
-        return open(system_prompt_path,"r",encoding="utf-8").read()
+        with open(system_prompt_path, "r", encoding="utf-8") as prompt_file:
+            return prompt_file.read()
     except Exception as e:
         logger.error(f"[load_system_prompts]解析系统提示词出错, {str(e)}")
         raise e
@@ -23,7 +24,8 @@ def load_rag_summarize_prompts():
         raise e
 
     try:
-        return open(rag_summarize_prompt_path,"r",encoding="utf-8").read()
+        with open(rag_summarize_prompt_path, "r", encoding="utf-8") as prompt_file:
+            return prompt_file.read()
     except Exception as e:
         logger.error(f"[load_rag_summarize_prompts]解析RAG摘要提示词出错, {str(e)}")
         raise e
@@ -36,7 +38,8 @@ def load_report_prompts():
         raise e
 
     try:
-        return open(report_prompt_path,"r",encoding="utf-8").read()
+        with open(report_prompt_path, "r", encoding="utf-8") as prompt_file:
+            return prompt_file.read()
     except Exception as e:
         logger.error(f"[load_report_prompts]解析报告提示词出错, {str(e)}")
         raise e

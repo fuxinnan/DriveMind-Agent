@@ -1,23 +1,13 @@
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 """
 总结服务类：用户提问，搜索参考资料，将提问和参考资料提交给模型，让模型总结回复
 """
+from langchain_core.documents import Document
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
+
+from model.factory import chat_model
 from rag.vector_store import VectorStoreService
 from utils.prompt_loader import load_rag_summarize_prompts
-from langchain_core.prompts import PromptTemplate
-from model.factory import chat_model
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.documents import Document
-
-
-def print_prompt(prompt):
-    print("=" * 20)
-    print(prompt.to_string)
-    print("=" * 20)
-    return prompt
 
 
 class RagSummaryService(object):
@@ -30,7 +20,7 @@ class RagSummaryService(object):
         self.chain = self._init_chain()
 
     def _init_chain(self):
-        chain = self.prompt_template | print_prompt | self.model | StrOutputParser()
+        chain = self.prompt_template | self.model | StrOutputParser()
         return chain
 
     def retriever_docs(self,query:str) -> list[Document]:
@@ -52,8 +42,3 @@ class RagSummaryService(object):
                 "context":context
             }
         )
-
-# if __name__ == "__main__":
-#     rag = RagSummaryService()
-
-#     print(rag.rag_summarize("小户型适合哪些扫地机器人？"))

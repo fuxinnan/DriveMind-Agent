@@ -1,0 +1,13 @@
+streamlit
+langchain
+langchain-community
+langchain-openai
+langchain-chroma
+langchain-text-splitters
+langgraph
+chromadb
+dashscope
+pypdf
+PyYAML
+python-dotenv
+pytest
