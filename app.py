@@ -214,45 +214,78 @@ def inject_styles() -> None:
             background: var(--dm-line);
         }
 
-        .dm-metric-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: .8rem;
-        }
-
-        .dm-metric {
-            min-height: 118px;
-            padding: 1rem 1.1rem;
+        [data-testid="stMetric"] {
+            min-height: 124px;
+            padding: .95rem 1rem .85rem;
             border: 1px solid var(--dm-line);
             border-radius: 16px;
             background: var(--dm-panel);
             box-shadow: 0 10px 28px rgba(35, 64, 90, .045);
+            overflow: visible;
         }
 
-        .dm-metric-label {
+        [data-testid="stMetricLabel"] {
             color: var(--dm-muted);
-            font-size: .72rem;
-            letter-spacing: .06em;
+            font-size: .7rem;
+            letter-spacing: .015em;
+            line-height: 1.35;
+            white-space: normal;
+            overflow: visible;
         }
 
-        .dm-metric-value {
-            margin-top: .62rem;
+        [data-testid="stMetricLabel"] > div,
+        [data-testid="stMetricLabel"] p {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+        }
+
+        [data-testid="stMetricValue"] {
+            margin-top: .4rem;
             color: var(--dm-ink);
             font-family: "Georgia", "Noto Serif SC", serif;
-            font-size: 1.75rem;
-            line-height: 1;
+            font-size: clamp(1.25rem, 2.1vw, 1.65rem);
+            line-height: 1.15;
+            white-space: nowrap;
         }
 
-        .dm-metric-unit {
-            margin-left: .25rem;
-            color: #75889a;
+        [data-testid="stMetricDelta"] {
+            margin-top: .45rem;
             font-family: "Consolas", monospace;
-            font-size: .68rem;
+            font-size: .7rem;
         }
 
-        .dm-metric-note {
-            margin-top: .62rem;
-            color: #8291a0;
+        .dm-telemetry-note {
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+            margin-top: .72rem;
+            color: #75889a;
+            font-size: .72rem;
+        }
+
+        .dm-telemetry-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--dm-teal);
+            box-shadow: 0 0 0 4px rgba(45, 129, 125, .1);
+        }
+
+        .dm-evidence-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            margin-top: .75rem;
+        }
+
+        .dm-evidence-item {
+            padding: .4rem .65rem;
+            border: 1px solid var(--dm-line);
+            border-radius: 9px;
+            color: #5c7185;
+            background: rgba(255, 255, 255, .58);
+            font-family: "Consolas", "Microsoft YaHei UI", monospace;
             font-size: .68rem;
         }
 
@@ -340,11 +373,9 @@ def inject_styles() -> None:
             .block-container { padding-top: 1.2rem; }
             .dm-hero { min-height: auto; padding: 1.7rem 1.4rem; }
             .dm-hero::after { opacity: .55; }
-            .dm-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
         @media (max-width: 560px) {
-            .dm-metric-grid { grid-template-columns: 1fr; }
             .dm-hero h1 { font-size: 2rem; }
         }
 
@@ -367,19 +398,37 @@ def status_class(status: str) -> str:
         "FAIL": "fail",
         "WARN": "warn",
         "BASELINE": "baseline",
+        "INCONCLUSIVE": "warn",
     }.get(status.upper(), "baseline")
 
 
-def metric_card(label: str, value: str, unit: str, note: str) -> str:
-    return f"""
-        <div class="dm-metric">
-            <div class="dm-metric-label">{safe(label)}</div>
-            <div class="dm-metric-value">{safe(value)}
-                <span class="dm-metric-unit">{safe(unit)}</span>
-            </div>
-            <div class="dm-metric-note">{safe(note)}</div>
-        </div>
-    """
+def number(record: dict[str, str], field: str) -> float | None:
+    try:
+        return float(record[field])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def metric_value(value: float | None, unit: str, as_percent: bool = False) -> str:
+    if value is None:
+        return "—"
+    if as_percent:
+        return f"{value * 100:.1f}%"
+    return f"{value:.3f} {unit}".strip()
+
+
+def metric_delta(
+    current: float | None,
+    baseline: float | None,
+    unit: str,
+    as_percent: bool = False,
+) -> str | None:
+    if current is None or baseline is None:
+        return None
+    difference = current - baseline
+    if as_percent:
+        return f"{difference * 100:+.1f} pp"
+    return f"{difference:+.3f} {unit}".strip()
 
 
 inject_styles()
@@ -419,7 +468,7 @@ with st.sidebar:
     st.markdown(
         """
         <div class="dm-safety">
-            <strong>研究用途 · Mock 数据</strong><br>
+            <strong>研究用途 · Mock 原始遥测</strong><br>
             分析结果不替代道路测试、安全审查、变更评审或正式发布审批。
         </div>
         """,
@@ -437,6 +486,9 @@ if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
 record = get_eval_record(owner_id, run_id) or {}
+baseline_record = (
+    get_eval_record(owner_id, baseline_run_id) or {} if baseline_run_id else {}
+)
 gate_status = record.get("gate_status", "UNKNOWN")
 
 st.markdown(
@@ -446,7 +498,7 @@ st.markdown(
         <h1>把评测数据转化为<br>可复核的工程判断</h1>
         <div class="dm-hero-copy">
             面向端到端模型回归、ODD 风险切片与门禁复核的研究工作台。
-            当前回答严格绑定所选跑次、Mock 数据与本地评测知识库。
+            页面指标由所选跑次的逐时刻车辆与场景遥测确定性计算。
         </div>
         <div class="dm-run-line">
             <span class="dm-status dm-status-{status_class(gate_status)}">{safe(gate_status)}</span>
@@ -461,18 +513,83 @@ st.markdown(
 )
 
 st.markdown('<div class="dm-section-label">Run telemetry / 当前跑次遥测</div>', unsafe_allow_html=True)
-metrics = [
-    ("ADE", record.get("ade", "—"), "m", "平均位移误差"),
-    ("FDE", record.get("fde", "—"), "m", "终点位移误差"),
-    ("Miss Rate", record.get("miss_rate", "—"), "ratio", "开环漏检/失配比例"),
-    ("Route Completion", record.get("route_completion", "—"), "ratio", "闭环路线完成度"),
+metric_specs = [
+    ("ADE", "ade", "m", False, "inverse", "平均位移误差，越低越好"),
+    ("FDE", "fde", "m", False, "inverse", "场景末端位移误差，越低越好"),
+    ("Miss Rate", "miss_rate", "", True, "inverse", "末端误差超过阈值的场景比例"),
+    ("Route Completion", "route_completion", "", True, "normal", "路线完成比例，越高越好"),
 ]
+metric_columns = st.columns(4)
+for column, (label, field, unit, as_percent, delta_color, help_text) in zip(
+    metric_columns, metric_specs
+):
+    current_value = number(record, field)
+    baseline_value = number(baseline_record, field)
+    with column:
+        st.metric(
+            label=label,
+            value=metric_value(current_value, unit, as_percent),
+            delta=metric_delta(current_value, baseline_value, unit, as_percent),
+            delta_color=delta_color,
+            help=help_text,
+        )
+
+comparison_note = (
+    f"相对基线 {baseline_run_id} 显示差值；绿色表示改善，红色表示退化。"
+    if baseline_run_id
+    else "当前展示绝对值。若要查看改善或退化幅度，请在左侧选择对照基线。"
+)
 st.markdown(
-    '<div class="dm-metric-grid">'
-    + "".join(metric_card(*metric) for metric in metrics)
-    + "</div>",
+    f'<div class="dm-telemetry-note"><span class="dm-telemetry-dot"></span>'
+    f"{safe(comparison_note)}</div>",
     unsafe_allow_html=True,
 )
+st.markdown(
+    '<div class="dm-evidence-strip">'
+    f'<span class="dm-evidence-item">SCENARIOS {safe(record.get("scenario_count"))}</span>'
+    f'<span class="dm-evidence-item">RAW FRAMES {safe(record.get("raw_frame_count"))}</span>'
+    f'<span class="dm-evidence-item">VALID DISTANCE {safe(record.get("valid_distance_km"))} km</span>'
+    f'<span class="dm-evidence-item">MISS THRESHOLD {safe(record.get("miss_threshold_m"))} m</span>'
+    f'<span class="dm-evidence-item">SOURCE {safe(record.get("source"))}</span>'
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+with st.expander("查看闭环与数据质量指标"):
+    secondary_specs = [
+        ("Collision Rate", "collision_rate", "", True, "inverse", "发生碰撞的场景占比"),
+        (
+            "Takeover / 100 km",
+            "closed_loop_takeover_per_100km",
+            "",
+            False,
+            "inverse",
+            "每百公里接管事件数",
+        ),
+        (
+            "Collision / 100 km",
+            "closed_loop_collision_per_100km",
+            "",
+            False,
+            "inverse",
+            "每百公里碰撞事件数",
+        ),
+        ("Invalid Sample", "invalid_sample_rate", "", True, "inverse", "无效或超时帧占比"),
+    ]
+    secondary_columns = st.columns(4)
+    for column, (label, field, unit, as_percent, delta_color, help_text) in zip(
+        secondary_columns, secondary_specs
+    ):
+        current_value = number(record, field)
+        baseline_value = number(baseline_record, field)
+        with column:
+            st.metric(
+                label=label,
+                value=metric_value(current_value, unit, as_percent),
+                delta=metric_delta(current_value, baseline_value, unit, as_percent),
+                delta_color=delta_color,
+                help=help_text,
+            )
 
 st.markdown('<div class="dm-section-label">Analysis dialogue / 研究对话</div>', unsafe_allow_html=True)
 

@@ -1,23 +1,29 @@
-DriveMind 跑次字段与工具约定
+DriveMind 原始遥测字段、计算口径与工具约定
 
 身份字段：
-- owner_id：评测负责人标识，由侧边栏选择。
-- run_id：跑次主键，格式 run_YYYYMMDD_xx。
-- baseline_run_id：可选基线，必须属于同一 owner 且指向存在的跑次。
-- model_version、dataset：模型与数据集版本。
+- owner_id、run_id、baseline_run_id：负责人、跑次和可选基线；同一跑次的逐时刻记录必须保持一致。
+- scenario_id、timestamp_ms：场景标识与时间戳；每行代表一个采样时刻。
+- model_version、dataset、eval_region：模型、数据集和评测区域。
 
-条件字段：
-- eval_region：评测地图或评测域。
-- env_condition：光照、气象和交通密度等条件。
+车辆与环境字段：
+- road_type、weather、light_condition、traffic_density：道路、天气、光照和交通密度。
+- ego_x_m、ego_y_m、speed_mps、acceleration_mps2、yaw_rate_rps、steering_angle_deg：车辆状态。
+- predicted_x_m、predicted_y_m、ground_truth_x_m、ground_truth_y_m：预测轨迹点与真实轨迹点。
+- sample_valid、timed_out：样本有效性与超时标记。
+- collision_event_id、takeover_event_id：事件唯一标识；同一事件跨帧重复时只计一次。
+- distance_delta_m、planned_route_m、completed_route_m：增量里程及路线计划/完成量。
 
-指标与证据字段：
-- ade、fde、miss_rate、collision_rate：开环指标。
-- route_completion、closed_loop_takeover_per_100km、closed_loop_collision_per_100km：闭环补充指标。
-- timeout_count、invalid_sample_rate：运行健康。
-- gate_status：记录中的门禁状态。
-- comparison_summary、scenario_risks、notes：解释性文本，不能覆盖原始数值。
+确定性计算口径：
+- ADE：所有有效轨迹点的欧氏位置误差均值。
+- FDE：每个场景最后一个有效轨迹点误差的均值。
+- Miss Rate：场景末端误差大于 config/metrics.yml 中 miss_threshold_m 的场景占比。
+- Collision Rate：记录到碰撞事件的场景占全部场景比例。
+- Route Completion：各场景完成路线长度之和除以计划路线长度之和。
+- Takeover/Collision per 100 km：去重事件数除以有效里程并换算到每百公里。
+- invalid_sample_rate、timeout_count：直接根据逐时刻有效性与超时标记计算。
+- gate_status 固定为 INCONCLUSIVE；当前项目不根据实车数据自动作正式门禁结论。
 
 报告工具固定顺序：
 fill_context_for_report → get_eval_owner_id → get_run_id → fetch_external_data
 
-工具只允许读取当前侧边栏 context。请求的 owner_id 或 run_id 与当前选择不一致时返回无数据，不随机选择或跨 owner 查询。baseline 为空时不伪造比较结果。
+工具只允许读取当前侧边栏 context。fetch_external_data 返回由原始遥测聚合的跑次摘要、样本规模、有效里程和指标口径，不直接向模型发送全部高频帧。baseline 为空时不伪造比较结果。

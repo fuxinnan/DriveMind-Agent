@@ -7,6 +7,7 @@ from typing import Any
 from langchain.tools import ToolRuntime, tool
 
 from agent.context import AgentContext
+from evaluation.metrics import aggregate_runs
 from utils.config_handler import agent_conf
 from utils.loger_handler import logger
 from utils.path_tools import get_abs_path
@@ -17,24 +18,25 @@ def _records_path() -> str:
 
 
 @lru_cache(maxsize=1)
-def load_eval_records() -> tuple[dict[str, str], ...]:
-    """Load immutable evaluation records from the configured UTF-8 CSV."""
+def load_raw_records() -> tuple[dict[str, str], ...]:
+    """Load immutable frame-level telemetry from the configured UTF-8 CSV."""
     path = _records_path()
     if not os.path.isfile(path):
-        raise FileNotFoundError(f"评测数据文件不存在：{path}")
+        raise FileNotFoundError(f"原始遥测数据文件不存在：{path}")
 
     with open(path, "r", encoding="utf-8-sig", newline="") as file:
-        records = tuple(dict(row) for row in csv.DictReader(file))
+        return tuple(dict(row) for row in csv.DictReader(file))
 
-    required = {"owner_id", "run_id", "eval_region", "env_condition"}
-    missing = required.difference(records[0].keys() if records else set())
-    if missing:
-        raise ValueError(f"评测数据缺少字段：{', '.join(sorted(missing))}")
-    return records
+
+@lru_cache(maxsize=1)
+def load_eval_records() -> tuple[dict[str, str], ...]:
+    """Return deterministic run summaries computed from raw telemetry."""
+    return aggregate_runs(load_raw_records())
 
 
 def clear_records_cache() -> None:
-    """Clear the CSV cache, primarily for tests and local data refreshes."""
+    """Clear raw and aggregate caches after telemetry changes."""
+    load_raw_records.cache_clear()
     load_eval_records.cache_clear()
 
 
@@ -106,7 +108,7 @@ def get_env_condition(runtime: ToolRuntime[AgentContext]) -> str:
 def build_external_data(
     owner_id: str, run_id: str, baseline_run_id: str = ""
 ) -> dict[str, Any] | None:
-    """Return selected run data and an optional baseline, without inference."""
+    """Return computed run evidence and an optional computed baseline."""
     record = get_eval_record(owner_id, run_id)
     if record is None:
         return None
@@ -119,13 +121,17 @@ def build_external_data(
         "selected_run": record,
         "baseline_run": baseline,
         "baseline_requested": baseline_run_id or None,
-        "data_policy": "仅可引用以上原始字段；空值或缺失字段不得推断。",
+        "data_policy": (
+            "指标由逐时刻原始遥测确定性计算；仅可引用以上聚合结果与口径元数据。"
+            "空值或缺失字段不得推断；gate_status=INCONCLUSIVE 不代表通过。"
+        ),
     }
 
 
 @tool(
     description=(
-        "按 owner_id 与 run_id 查询评测记录，可附带 baseline_run_id。"
+        "按 owner_id 与 run_id 查询由原始车辆遥测计算的评测摘要，"
+        "可附带 baseline_run_id。"
         "仅允许查询当前侧边栏选中的负责人和跑次；未命中时返回明确无数据结果。"
     )
 )

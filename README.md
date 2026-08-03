@@ -2,7 +2,7 @@
 
 DriveMind 是面向端到端（E2E）自动驾驶研发团队的评测知识问答与跑次分析助手。项目基于 LangChain Agent、Chroma 向量检索和 Streamlit 构建，面向模型版本回归、开环指标解读、闭环结果补充分析、场景风险梳理和评测报告生成等工作。
 
-当前版本为可运行的本地 MVP，使用 Mock 跑次数据和示例门禁策略验证完整分析链路，不连接真实评测平台，不参与车辆控制或正式发布审批。
+当前版本为可运行的本地 MVP，使用逐时刻 Mock 车辆遥测验证“原始数据校验—指标计算—Agent 分析”完整链路，不连接真实评测平台，不参与车辆控制或正式发布审批。
 
 ## 核心能力
 
@@ -64,7 +64,8 @@ fill_context_for_report
 - Tool 层：读取 runtime context、查询 CSV 跑次数据并调用 RAG；
 - RAG 层：Chroma 完成知识向量存储和检索，摘要链仅基于召回资料生成回答；
 - Model 层：通过 OpenAI 兼容接口调用聊天模型，通过 DashScope 调用嵌入模型；
-- Data 层：分别维护结构化 Mock 跑次和领域知识源。
+- Evaluation 层：校验逐时刻车辆/场景遥测，并确定性计算跑次指标；
+- Data 层：分别维护结构化 Mock 原始遥测和领域知识源。
 
 主要数据流如下：
 
@@ -91,18 +92,22 @@ DriveMind-Agent/
 ├─ config/
 │  ├─ agent.yml                  # 外部数据路径
 │  ├─ chroma.yml                 # 向量库与分片配置
+│  ├─ metrics.yml                # 原始遥测字段与指标口径
 │  ├─ prompts.yml                # 提示词路径
 │  └─ rag.yml                    # 模型名称与服务地址
 ├─ data/
-│  ├─ external/records.csv       # Mock 评测跑次
+│  ├─ external/records.csv       # 逐时刻 Mock 车辆与场景遥测
 │  └─ knowledge/                 # DriveMind 领域知识
+├─ evaluation/metrics.py         # 场景级与跑次级指标计算
 ├─ eval/
 │  ├─ cases.yaml                 # 行为验收样例
 │  └─ golden_reports/            # 参考报告
 ├─ model/factory.py              # 聊天与嵌入模型工厂
 ├─ prompts/                      # 主提示词、报告提示词和 RAG 提示词
 ├─ rag/                          # Chroma 入库、检索与摘要链
-├─ scripts/rebuild_kb.py         # 知识源校验与向量库重建
+├─ scripts/
+│  ├─ generate_mock_telemetry.py # 重建本地 Mock 原始遥测
+│  └─ rebuild_kb.py              # 知识源校验与向量库重建
 ├─ tests/                        # 确定性自动化测试
 ├─ utils/                        # 配置、路径、日志与文件工具
 ├─ .env.example                  # 环境变量模板
@@ -167,21 +172,25 @@ DASHSCOPE_API_KEY=replace_with_your_key
 - 已经出现在代码、日志或聊天记录中的密钥应立即撤销并轮换；
 - 生产环境应使用组织统一的密钥管理服务，而不是本地明文文件。
 
-## Mock 跑次数据
+## 原始车辆与场景数据
 
-跑次数据位于 `data/external/records.csv`，当前包含多个负责人及其不同模型版本。核心字段包括：
+输入位于 `data/external/records.csv`。该文件不再直接填写 ADE、FDE 等结果；每行表示一个场景采样时刻，主要包含：
 
-- 身份：`owner_id`、`run_id`、`baseline_run_id`；
-- 版本：`model_version`、`dataset`；
-- 环境：`eval_region`、`env_condition`；
-- 开环：`ade`、`fde`、`miss_rate`、`collision_rate`；
-- 闭环：`route_completion`、`closed_loop_takeover_per_100km`、`closed_loop_collision_per_100km`；
-- 健康：`timeout_count`、`invalid_sample_rate`；
-- 解释：`gate_status`、`comparison_summary`、`scenario_risks`、`notes`。
+- 身份：`owner_id`、`run_id`、`baseline_run_id`、`scenario_id`、`timestamp_ms`；
+- 版本：`model_version`、`dataset`、`eval_region`；
+- 环境：`road_type`、`weather`、`light_condition`、`traffic_density`；
+- 车辆：位置、速度、加速度、横摆角速度和转向角；
+- 轨迹：预测位置 `predicted_x_m/predicted_y_m` 与真实位置 `ground_truth_x_m/ground_truth_y_m`；
+- 事件：有效性、超时、碰撞事件 ID、接管事件 ID；
+- 里程：增量里程、计划路线长度和完成路线长度。
 
-`run_id` 必须符合 `run_YYYYMMDD_xx` 格式。`baseline_run_id` 如不为空，应指向同一 `owner_id` 下真实存在的跑次。
+应用按跑次实时聚合：ADE 使用所有有效轨迹点，FDE 使用各场景末端有效点；Miss Rate 的默认阈值为 2.0 m；碰撞和接管按事件 ID 去重后再按场景或有效里程归一化。完整字段和口径见 `config/metrics.yml` 与 `data/knowledge/06_字段约定.md`。
 
-替换或扩展数据时，应保持 UTF-8 CSV 格式和现有表头。应用启动后会缓存 CSV；开发过程中更新数据后，建议重启 Streamlit。
+`run_id` 必须符合 `run_YYYYMMDD_xx` 格式，baseline 必须属于同一 owner。真实数据需保持 UTF-8 和现有表头；更新后重启 Streamlit 以清除缓存。要恢复仓库自带示例数据，可执行：
+
+```powershell
+python -m scripts.generate_mock_telemetry
+```
 
 ## 知识库维护与重建
 
@@ -240,7 +249,7 @@ http://localhost:8501
 2. 询问“ADE 是什么”以验证知识检索；
 3. 输入“为当前跑次生成开环评测报告”；
 4. 检查报告是否包含九个固定章节；
-5. 核对报告中的版本、run_id 和指标是否与 CSV 一致；
+5. 核对报告中的版本、run_id、样本规模和计算指标是否与原始 CSV 一致；
 6. 切换负责人或跑次，确认会话上下文随之重置。
 
 ## 测试与质量检查
@@ -253,7 +262,8 @@ python -m pytest -q
 
 测试范围包括：
 
-- CSV 原生字段、跑次格式和 baseline 引用完整性；
+- 原始遥测字段、数值范围、跑次格式和 baseline 引用完整性；
+- ADE/FDE/Miss Rate、事件去重、每百公里归一化和无效样本计算；
 - owner/run context 的确定性读取；
 - 非当前上下文数据的拒绝查询；
 - 可选基线加载；
@@ -290,7 +300,7 @@ python -m compileall -q agent model rag utils scripts tests app.py
 
 ### 侧边栏没有 owner 或 run
 
-检查 `data/external/records.csv` 是否存在、是否使用 UTF-8 编码，以及是否包含 `owner_id`、`run_id`、`eval_region` 和 `env_condition`。
+检查 `data/external/records.csv` 是否存在、是否使用 UTF-8 编码，以及是否包含 `config/metrics.yml` 中声明的全部原始遥测字段。
 
 ### 报告未使用选中的跑次
 
@@ -308,7 +318,7 @@ DriveMind 当前明确不提供以下能力：
 - 不替代道路测试、安全审查、变更评审和正式发布审批；
 - 当前 MVP 不提供 Top Failures 自动聚合。
 
-所有报告仅基于本地 Mock 数据、当前知识库和模型生成结果。安全关键结论必须由具备授权和领域责任的人员结合完整证据复核。
+所有报告仅基于本地 Mock 原始遥测的计算结果、当前知识库和模型生成结果。安全关键结论必须由具备授权和领域责任的人员结合完整证据复核。
 
 ## 后续扩展方向
 

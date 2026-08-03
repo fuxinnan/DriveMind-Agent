@@ -1,0 +1,34 @@
+coordinate_unit: m
+miss_threshold_m: 2.0
+run_id_pattern: "^run_\\d{8}_\\d{2}$"
+
+required_fields:
+  - owner_id
+  - run_id
+  - baseline_run_id
+  - scenario_id
+  - timestamp_ms
+  - model_version
+  - dataset
+  - eval_region
+  - road_type
+  - weather
+  - light_condition
+  - traffic_density
+  - ego_x_m
+  - ego_y_m
+  - speed_mps
+  - acceleration_mps2
+  - yaw_rate_rps
+  - steering_angle_deg
+  - predicted_x_m
+  - predicted_y_m
+  - ground_truth_x_m
+  - ground_truth_y_m
+  - sample_valid
+  - timed_out
+  - collision_event_id
+  - takeover_event_id
+  - distance_delta_m
+  - planned_route_m
+  - completed_route_m

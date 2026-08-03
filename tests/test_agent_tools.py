@@ -13,6 +13,7 @@ from agent.tools.agent_tools import (
     list_eval_owners,
     list_runs_for_owner,
     load_eval_records,
+    load_raw_records,
 )
 
 
@@ -33,13 +34,25 @@ def make_runtime(owner_id: str, run_id: str, baseline_run_id: str = ""):
 
 
 def test_native_records_are_consistent():
+    raw_records = load_raw_records()
     records = load_eval_records()
     owners = list_eval_owners()
 
+    assert len(raw_records) > len(records)
+    assert {
+        "scenario_id",
+        "timestamp_ms",
+        "speed_mps",
+        "predicted_x_m",
+        "ground_truth_x_m",
+        "weather",
+    }.issubset(raw_records[0])
     assert len(owners) >= 3
     assert len(records) >= 12
     assert len({row["run_id"] for row in records}) == len(records)
     assert all(re.fullmatch(r"run_\d{8}_\d{2}", row["run_id"]) for row in records)
+    assert all(row["source"] == "computed_from_raw_telemetry" for row in records)
+    assert all(row["gate_status"] == "INCONCLUSIVE" for row in records)
 
     keys = {(row["owner_id"], row["run_id"]) for row in records}
     for row in records:
